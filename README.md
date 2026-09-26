@@ -9,6 +9,7 @@
 | Open Data 資料檔 | [`data/AttractionList.json`](data/AttractionList.json)（單一 JSON 檔，16 MB，下載日期 2026-09-26） |
 | 技術 | Python 3.13 · FastAPI · SQLAlchemy 2 · Pydantic 2 · SQLite · Uvicorn |
 | API 文件 | Swagger UI：`http://127.0.0.1:8000/docs`　ReDoc：`/redoc`　規格檔：[`docs/openapi.json`](docs/openapi.json) / [`docs/openapi.yaml`](docs/openapi.yaml)　靜態版：[`docs/index.html`](docs/index.html) |
+| 示範影片 | [`video/demo.mp4`](video/demo.mp4)（5 分 37 秒，系統介紹、操作步驟與功能說明，含中文旁白與字幕） |
 | 實測範例 | [`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md)（66 組 Request / Response，由 API Client 實際執行自動產生） |
 | API Client | Python Client：[`client/api_client.py`](client/api_client.py)　Postman：[`postman/Taiwan-Tourism-API.postman_collection.json`](postman/Taiwan-Tourism-API.postman_collection.json) |
 | 自動化測試 | [`tests/test_api.py`](tests/test_api.py)（pytest，23 個測試案例） |
@@ -378,12 +379,14 @@ opendata/
 ├── scripts/
 │   ├── import_data.py           # 匯入 / 重建資料庫
 │   ├── export_openapi.py        # 匯出 openapi.json / yaml / 靜態 Swagger UI
-│   └── generate_postman.py      # 產生 Postman Collection
+│   ├── generate_postman.py      # 產生 Postman Collection
+│   └── record_demo.py           # 錄製示範影片（Playwright + edge-tts + ffmpeg）
 ├── docs/
 │   ├── openapi.json / .yaml     # API 規格
 │   ├── index.html               # 靜態 Swagger UI（免啟動伺服器）
 │   ├── API_EXAMPLES.md          # API 實測範例
 │   └── AI_DEVELOPMENT.md        # AI 輔助開發紀錄
+├── video/demo.mp4               # 系統介紹與操作示範影片
 ├── CLAUDE.md                    # AI 輔助開發工具（Claude Code）專案設定
 ├── requirements.txt
 ├── Dockerfile / render.yaml     # 部署設定
