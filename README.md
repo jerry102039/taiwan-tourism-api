@@ -18,6 +18,14 @@
 
 ---
 
+## 🎬 示範影片
+
+系統介紹、操作步驟與功能說明（5 分 37 秒，含中文旁白與字幕）。1080p 原檔：[`video/demo.mp4`](video/demo.mp4)
+
+https://github.com/user-attachments/assets/e762ebc3-a5f7-4c66-b726-bd91bf49371f
+
+---
+
 ## ✨ 功能特色
 
 - **完整 CRUD**：8 種 Resource 皆提供 `GET`（列表 / 單筆）、`POST`、`PUT`（整筆取代）、`PATCH`（部分更新）、`DELETE`
