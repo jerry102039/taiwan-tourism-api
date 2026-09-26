@@ -1,0 +1,4067 @@
+openapi: 3.1.0
+info:
+  title: Taiwan Tourism Open Data API
+  description: '
+
+    以 **交通部觀光署「景點 - 觀光資訊資料庫」** 政府開放資料（6,000+ 筆全台景點）為基礎的 RESTful API。
+
+
+    資料來源：<https://data.gov.tw/dataset/7777>（觀光資料標準 V2.1）
+
+
+    ### 資源 (Resources)
+
+    | Resource | 說明 |
+
+    |---|---|
+
+    | `attractions` | 景點（支援關鍵字搜尋、多條件篩選、排序、分頁、附近景點查詢） |
+
+    | `attractions/{id}/images` | 景點圖片（子資源） |
+
+    | `categories` | 景點類型（文化類、生態類…） |
+
+    | `cities` / `towns` | 縣市 / 鄉鎮市區 |
+
+    | `reviews` | 遊客評論（1~5 星） |
+
+    | `trips` / `trips/{id}/items` | 旅遊行程與行程項目 |
+
+    | `stats` | 統計資訊（唯讀） |
+
+
+    ### 驗證
+
+    所有 **讀取 (GET)** 操作公開；**新增 / 修改 / 刪除 (POST / PUT / PATCH / DELETE)** 需在 Header
+    帶入
+
+    `X-API-Key: ntub-iot-2026`（可按右上角 **Authorize** 按鈕設定）。
+
+
+    ### 慣例
+
+    * 列表回應格式：`{"total", "page", "page_size", "pages", "items"}`，並附 `X-Total-Count`
+    header
+
+    * 建立成功回傳 `201 Created` 與 `Location` header；刪除成功回傳 `204 No Content`
+
+    * 錯誤格式：`{"detail": "錯誤說明"}`（404 查無資料、409 資料衝突、422 驗證失敗）
+
+    '
+  contact:
+    name: NTUB IoT App 作業
+  license:
+    name: 政府資料開放授權條款－第1版
+    url: https://data.gov.tw/license
+  version: 1.0.0
+paths:
+  /api/v1/attractions:
+    get:
+      tags:
+      - Attractions 景點
+      summary: 查詢景點列表（分頁、篩選、排序）
+      operationId: list_attractions_api_v1_attractions_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 關鍵字（比對名稱、別名、描述、地址）
+          examples:
+          - 老街
+          title: Q
+        description: 關鍵字（比對名稱、別名、描述、地址）
+      - name: city_code
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 縣市代碼
+          examples:
+          - '63000'
+          title: City Code
+        description: 縣市代碼
+      - name: city
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 縣市名稱（部分比對）
+          examples:
+          - 臺北
+          title: City
+        description: 縣市名稱（部分比對）
+      - name: town_code
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 鄉鎮市區代碼
+          title: Town Code
+        description: 鄉鎮市區代碼
+      - name: category_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: array
+            items:
+              type: integer
+          - type: 'null'
+          description: 景點類型代碼，可重複帶入（OR 條件）
+          title: Category Id
+        description: 景點類型代碼，可重複帶入（OR 條件）
+      - name: is_free
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: 是否免費入場
+          title: Is Free
+        description: 是否免費入場
+      - name: service_status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/ServiceStatus'
+          - type: 'null'
+          description: 營運狀態
+          title: Service Status
+        description: 營運狀態
+      - name: has_image
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: 是否有圖片
+          title: Has Image
+        description: 是否有圖片
+      - name: tag
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 標籤（完全比對）
+          examples:
+          - 賞楓
+          title: Tag
+        description: 標籤（完全比對）
+      - name: sort
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/SortField'
+          description: 排序欄位，前面加 - 代表遞減
+          default: id
+        description: 排序欄位，前面加 - 代表遞減
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_AttractionSummary_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Attractions 景點
+      summary: 新增景點
+      operationId: create_attraction_api_v1_attractions_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttractionCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttractionDetail'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: Conflict
+        '422':
+          description: 欄位驗證失敗或參照的代碼不存在
+  /api/v1/attractions/nearby:
+    get:
+      tags:
+      - Attractions 景點
+      summary: 查詢附近景點（依距離排序）
+      operationId: nearby_attractions_api_v1_attractions_nearby_get
+      parameters:
+      - name: lat
+        in: query
+        required: true
+        schema:
+          type: number
+          maximum: 90
+          minimum: -90
+          description: 緯度
+          examples:
+          - 25.0421
+          title: Lat
+        description: 緯度
+      - name: lon
+        in: query
+        required: true
+        schema:
+          type: number
+          maximum: 180
+          minimum: -180
+          description: 經度
+          examples:
+          - 121.5253
+          title: Lon
+        description: 經度
+      - name: radius_km
+        in: query
+        required: false
+        schema:
+          type: number
+          maximum: 50
+          exclusiveMinimum: 0
+          description: 搜尋半徑（公里）
+          default: 3
+          title: Radius Km
+        description: 搜尋半徑（公里）
+      - name: category_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 景點類型代碼
+          title: Category Id
+        description: 景點類型代碼
+      - name: is_free
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Free
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttractionNearby'
+                title: Response Nearby Attractions Api V1 Attractions Nearby Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/attractions/{attraction_id}:
+    get:
+      tags:
+      - Attractions 景點
+      summary: 取得單一景點詳細資料
+      operationId: get_attraction_api_v1_attractions__attraction_id__get
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttractionDetail'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Attractions 景點
+      summary: 整筆更新景點（未提供的欄位會被重設為預設值）
+      operationId: replace_attraction_api_v1_attractions__attraction_id__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttractionFields'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttractionDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Attractions 景點
+      summary: 部分更新景點（只更新有傳入的欄位）
+      operationId: update_attraction_api_v1_attractions__attraction_id__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttractionUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttractionDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Attractions 景點
+      summary: 刪除景點（連同其圖片、評論、行程項目）
+      operationId: delete_attraction_api_v1_attractions__attraction_id__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/attractions/{attraction_id}/images:
+    get:
+      tags:
+      - Attraction Images 景點圖片
+      summary: 列出景點的所有圖片
+      operationId: list_images_api_v1_attractions__attraction_id__images_get
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImageOut'
+                title: Response List Images Api V1 Attractions  Attraction Id  Images
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Attraction Images 景點圖片
+      summary: 新增景點圖片
+      operationId: create_image_api_v1_attractions__attraction_id__images_post
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/attractions/{attraction_id}/images/{image_id}:
+    get:
+      tags:
+      - Attraction Images 景點圖片
+      summary: 取得單張圖片
+      operationId: get_image_api_v1_attractions__attraction_id__images__image_id__get
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      - name: image_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Image Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Attraction Images 景點圖片
+      summary: 整筆更新圖片
+      operationId: replace_image_api_v1_attractions__attraction_id__images__image_id__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      - name: image_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Image Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Attraction Images 景點圖片
+      summary: 部分更新圖片
+      operationId: update_image_api_v1_attractions__attraction_id__images__image_id__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      - name: image_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Image Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Attraction Images 景點圖片
+      summary: 刪除圖片
+      operationId: delete_image_api_v1_attractions__attraction_id__images__image_id__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      - name: image_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Image Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/attractions/{attraction_id}/reviews:
+    get:
+      tags:
+      - Reviews 評論
+      summary: 列出某景點的評論
+      operationId: list_attraction_reviews_api_v1_attractions__attraction_id__reviews_get
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      - name: sort
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ReviewSort'
+          default: -created_at
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_ReviewOut_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Reviews 評論
+      summary: 為某景點新增評論
+      operationId: create_attraction_review_api_v1_attractions__attraction_id__reviews_post
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: attraction_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attraction Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewFields'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/categories:
+    get:
+      tags:
+      - Categories 景點類型
+      summary: 列出景點類型
+      operationId: list_categories_api_v1_categories_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 名稱關鍵字
+          title: Q
+        description: 名稱關鍵字
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_CategoryOut_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Categories 景點類型
+      summary: 新增景點類型
+      operationId: create_category_api_v1_categories_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryOut'
+        '409':
+          description: 代碼或名稱重複
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/categories/{category_id}:
+    get:
+      tags:
+      - Categories 景點類型
+      summary: 取得單一景點類型
+      operationId: get_category_api_v1_categories__category_id__get
+      parameters:
+      - name: category_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Category Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Categories 景點類型
+      summary: 整筆更新景點類型
+      operationId: replace_category_api_v1_categories__category_id__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: category_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Category Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryBase'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Categories 景點類型
+      summary: 部分更新景點類型
+      operationId: update_category_api_v1_categories__category_id__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: category_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Category Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Categories 景點類型
+      summary: 刪除景點類型（景點本身不會被刪除，只移除關聯）
+      operationId: delete_category_api_v1_categories__category_id__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: category_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Category Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/cities:
+    get:
+      tags:
+      - Cities 縣市
+      summary: 列出縣市
+      operationId: list_cities_api_v1_cities_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 名稱關鍵字，例如：臺北
+          title: Q
+        description: 名稱關鍵字，例如：臺北
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_CityOut_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Cities 縣市
+      summary: 新增縣市
+      operationId: create_city_api_v1_cities_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityOut'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/cities/{city_code}:
+    get:
+      tags:
+      - Cities 縣市
+      summary: 取得單一縣市
+      operationId: get_city_api_v1_cities__city_code__get
+      parameters:
+      - name: city_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: City Code
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Cities 縣市
+      summary: 整筆更新縣市
+      operationId: replace_city_api_v1_cities__city_code__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: city_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: City Code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Cities 縣市
+      summary: 部分更新縣市
+      operationId: update_city_api_v1_cities__city_code__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: city_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: City Code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Cities 縣市
+      summary: 刪除縣市（連同其鄉鎮市區）
+      operationId: delete_city_api_v1_cities__city_code__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: city_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: City Code
+      - name: force
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: 若仍有景點使用此行政區，是否強制刪除（景點的行政區欄位會被清空）
+          default: false
+          title: Force
+        description: 若仍有景點使用此行政區，是否強制刪除（景點的行政區欄位會被清空）
+      responses:
+        '204':
+          description: Successful Response
+        '409':
+          description: 仍有景點位於此縣市且未指定 force=true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/cities/{city_code}/towns:
+    get:
+      tags:
+      - Cities 縣市
+      summary: 列出縣市底下的鄉鎮市區
+      operationId: list_city_towns_api_v1_cities__city_code__towns_get
+      parameters:
+      - name: city_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: City Code
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TownOut'
+                title: Response List City Towns Api V1 Cities  City Code  Towns Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/towns:
+    get:
+      tags:
+      - Towns 鄉鎮市區
+      summary: 列出鄉鎮市區
+      operationId: list_towns_api_v1_towns_get
+      parameters:
+      - name: city_code
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 依縣市代碼篩選
+          title: City Code
+        description: 依縣市代碼篩選
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 名稱關鍵字
+          title: Q
+        description: 名稱關鍵字
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_TownOut_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Towns 鄉鎮市區
+      summary: 新增鄉鎮市區
+      operationId: create_town_api_v1_towns_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TownCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TownOut'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/towns/{town_code}:
+    get:
+      tags:
+      - Towns 鄉鎮市區
+      summary: 取得單一鄉鎮市區
+      operationId: get_town_api_v1_towns__town_code__get
+      parameters:
+      - name: town_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Town Code
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TownOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Towns 鄉鎮市區
+      summary: 整筆更新鄉鎮市區
+      operationId: replace_town_api_v1_towns__town_code__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: town_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Town Code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TownCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TownOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Towns 鄉鎮市區
+      summary: 部分更新鄉鎮市區
+      operationId: update_town_api_v1_towns__town_code__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: town_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Town Code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TownUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TownOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Towns 鄉鎮市區
+      summary: 刪除鄉鎮市區
+      operationId: delete_town_api_v1_towns__town_code__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: town_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Town Code
+      - name: force
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: 若仍有景點使用此行政區，是否強制刪除（景點的行政區欄位會被清空）
+          default: false
+          title: Force
+        description: 若仍有景點使用此行政區，是否強制刪除（景點的行政區欄位會被清空）
+      responses:
+        '204':
+          description: Successful Response
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: Conflict
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reviews:
+    get:
+      tags:
+      - Reviews 評論
+      summary: 查詢評論列表
+      operationId: list_reviews_api_v1_reviews_get
+      parameters:
+      - name: attraction_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 景點 ID
+          title: Attraction Id
+        description: 景點 ID
+      - name: author
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 作者
+          title: Author
+        description: 作者
+      - name: min_rating
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 5
+            minimum: 1
+          - type: 'null'
+          description: 最低評分
+          title: Min Rating
+        description: 最低評分
+      - name: max_rating
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 5
+            minimum: 1
+          - type: 'null'
+          description: 最高評分
+          title: Max Rating
+        description: 最高評分
+      - name: sort
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ReviewSort'
+          description: 排序方式
+          default: -created_at
+        description: 排序方式
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_ReviewOut_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Reviews 評論
+      summary: 新增評論
+      operationId: create_review_api_v1_reviews_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/reviews/{review_id}:
+    get:
+      tags:
+      - Reviews 評論
+      summary: 取得單一評論
+      operationId: get_review_api_v1_reviews__review_id__get
+      parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Review Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Reviews 評論
+      summary: 整筆更新評論
+      operationId: replace_review_api_v1_reviews__review_id__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Review Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewFields'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Reviews 評論
+      summary: 部分更新評論
+      operationId: update_review_api_v1_reviews__review_id__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Review Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Reviews 評論
+      summary: 刪除評論
+      operationId: delete_review_api_v1_reviews__review_id__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Review Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips:
+    get:
+      tags:
+      - Trips 旅遊行程
+      summary: 列出旅遊行程
+      operationId: list_trips_api_v1_trips_get
+      parameters:
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 建立者
+          title: Owner
+        description: 建立者
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 標題關鍵字
+          title: Q
+        description: 標題關鍵字
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 頁碼（從 1 開始）
+          default: 1
+          title: Page
+        description: 頁碼（從 1 開始）
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: 每頁筆數（1~100）
+          default: 20
+          title: Page Size
+        description: 每頁筆數（1~100）
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page_TripSummary_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Trips 旅遊行程
+      summary: 建立行程（可同時帶入行程項目）
+      operationId: create_trip_api_v1_trips_post
+      security:
+      - APIKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}:
+    get:
+      tags:
+      - Trips 旅遊行程
+      summary: 取得行程（含所有行程項目）
+      operationId: get_trip_api_v1_trips__trip_id__get
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Trips 旅遊行程
+      summary: 整筆更新行程（行程項目會以 body 內容整批取代）
+      operationId: replace_trip_api_v1_trips__trip_id__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Trips 旅遊行程
+      summary: 部分更新行程
+      operationId: update_trip_api_v1_trips__trip_id__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Trips 旅遊行程
+      summary: 刪除行程
+      operationId: delete_trip_api_v1_trips__trip_id__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/items:
+    get:
+      tags:
+      - Trip Items 行程項目
+      summary: 列出行程項目
+      operationId: list_items_api_v1_trips__trip_id__items_get
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      - name: day
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            minimum: 1
+          - type: 'null'
+          description: 只列出第幾天
+          title: Day
+        description: 只列出第幾天
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TripItemOut'
+                title: Response List Items Api V1 Trips  Trip Id  Items Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - Trip Items 行程項目
+      summary: 新增行程項目（加入一個景點）
+      operationId: create_item_api_v1_trips__trip_id__items_post
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripItemCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripItemOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/items/{item_id}:
+    get:
+      tags:
+      - Trip Items 行程項目
+      summary: 取得單一行程項目
+      operationId: get_item_api_v1_trips__trip_id__items__item_id__get
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Item Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripItemOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Trip Items 行程項目
+      summary: 整筆更新行程項目
+      operationId: replace_item_api_v1_trips__trip_id__items__item_id__put
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Item Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripItemCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripItemOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Trip Items 行程項目
+      summary: 部分更新行程項目
+      operationId: update_item_api_v1_trips__trip_id__items__item_id__patch
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Item Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripItemUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripItemOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Trip Items 行程項目
+      summary: 刪除行程項目
+      operationId: delete_item_api_v1_trips__trip_id__items__item_id__delete
+      security:
+      - APIKeyHeader: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Trip Id
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Item Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/stats/overview:
+    get:
+      tags:
+      - Stats 統計
+      summary: 資料總覽
+      operationId: overview_api_v1_stats_overview_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
+  /api/v1/stats/cities:
+    get:
+      tags:
+      - Stats 統計
+      summary: 各縣市景點數量（由多到少）
+      operationId: by_city_api_v1_stats_cities_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CountItem'
+                type: array
+                title: Response By City Api V1 Stats Cities Get
+  /api/v1/stats/categories:
+    get:
+      tags:
+      - Stats 統計
+      summary: 各景點類型的景點數量（由多到少）
+      operationId: by_category_api_v1_stats_categories_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CountItem'
+                type: array
+                title: Response By Category Api V1 Stats Categories Get
+  /api/v1/stats/top-rated:
+    get:
+      tags:
+      - Stats 統計
+      summary: 評價最高的景點
+      operationId: top_rated_api_v1_stats_top_rated_get
+      parameters:
+      - name: min_reviews
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: 至少要有幾則評論
+          default: 1
+          title: Min Reviews
+        description: 至少要有幾則評論
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 10
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RatedAttraction'
+                title: Response Top Rated Api V1 Stats Top Rated Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /health:
+    get:
+      tags:
+      - System 系統
+      summary: 健康檢查
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    AttractionCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+          examples:
+          - 北科大校園
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          examples:
+          - 位於臺北市中正區的科技大學
+        alternate_names:
+          items:
+            type: string
+          type: array
+          title: Alternate Names
+          examples:
+          - - 臺北商大
+        latitude:
+          anyOf:
+          - type: number
+            maximum: 90.0
+            minimum: -90.0
+          - type: 'null'
+          title: Latitude
+          examples:
+          - 25.0421
+        longitude:
+          anyOf:
+          - type: number
+            maximum: 180.0
+            minimum: -180.0
+          - type: 'null'
+          title: Longitude
+          examples:
+          - 121.5253
+        city_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: City Code
+          examples:
+          - '63000'
+        town_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Town Code
+          examples:
+          - '63000050'
+        zip_code:
+          anyOf:
+          - type: string
+            maxLength: 10
+          - type: 'null'
+          title: Zip Code
+          examples:
+          - '100'
+        street_address:
+          anyOf:
+          - type: string
+            maxLength: 300
+          - type: 'null'
+          title: Street Address
+          examples:
+          - 濟南路一段321號
+        telephones:
+          items:
+            type: string
+          type: array
+          title: Telephones
+          examples:
+          - - (02)2322-6050
+        website_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Website Url
+          examples:
+          - https://www.ntub.edu.tw
+        service_time_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Time Info
+          examples:
+          - 週一至週五 08:00-22:00
+        traffic_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Traffic Info
+        parking_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parking Info
+        fee_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fee Info
+        service_status:
+          $ref: '#/components/schemas/ServiceStatus'
+          description: 0 永久停止 / 1 正常營運 / 2 非營運時段 / 3 暫時停止營運 / 9 待確認
+          default: 1
+        is_public_access:
+          type: boolean
+          title: Is Public Access
+          default: true
+        is_free:
+          type: boolean
+          title: Is Free
+          default: false
+          examples:
+          - true
+        visit_duration:
+          anyOf:
+          - type: integer
+            maximum: 100000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Visit Duration
+          description: 建議停留時間（分鐘）
+          examples:
+          - 60
+        assets_class:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assets Class
+          description: 文化資產級別代碼 (0-5, 9)
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          examples:
+          - - 校園
+            - 學習
+        remarks:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remarks
+        category_ids:
+          items:
+            type: integer
+          type: array
+          title: Category Ids
+          description: 景點類型代碼列表
+          examples:
+          - - 1
+            - 12
+        id:
+          anyOf:
+          - type: string
+            maxLength: 40
+            minLength: 1
+            pattern: ^[A-Za-z0-9_\-]+$
+          - type: 'null'
+          title: Id
+          description: 景點 ID；省略時自動產生（格式 Attraction_USER_xxxxxxxx）
+      type: object
+      required:
+      - name
+      title: AttractionCreate
+    AttractionDetail:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        alternate_names:
+          items:
+            type: string
+          type: array
+          title: Alternate Names
+          default: []
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
+        city:
+          anyOf:
+          - $ref: '#/components/schemas/CityRef'
+          - type: 'null'
+        town:
+          anyOf:
+          - $ref: '#/components/schemas/TownRef'
+          - type: 'null'
+        zip_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Zip Code
+        street_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Street Address
+        full_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Full Address
+        telephones:
+          items:
+            type: string
+          type: array
+          title: Telephones
+          default: []
+        website_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Website Url
+        service_time_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Time Info
+        traffic_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Traffic Info
+        parking_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parking Info
+        fee_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fee Info
+        service_status:
+          type: integer
+          title: Service Status
+        service_status_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Status Label
+        is_public_access:
+          type: boolean
+          title: Is Public Access
+        is_free:
+          type: boolean
+          title: Is Free
+        visit_duration:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Visit Duration
+        assets_class:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assets Class
+        assets_class_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assets Class Label
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
+        remarks:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remarks
+        categories:
+          items:
+            $ref: '#/components/schemas/CategoryRef'
+          type: array
+          title: Categories
+          default: []
+        images:
+          items:
+            $ref: '#/components/schemas/ImageOut'
+          type: array
+          title: Images
+          default: []
+        review_count:
+          type: integer
+          title: Review Count
+          default: 0
+        average_rating:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Average Rating
+        source_update_time:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Update Time
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - service_status
+      - is_public_access
+      - is_free
+      title: AttractionDetail
+    AttractionFields:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+          examples:
+          - 北科大校園
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          examples:
+          - 位於臺北市中正區的科技大學
+        alternate_names:
+          items:
+            type: string
+          type: array
+          title: Alternate Names
+          examples:
+          - - 臺北商大
+        latitude:
+          anyOf:
+          - type: number
+            maximum: 90.0
+            minimum: -90.0
+          - type: 'null'
+          title: Latitude
+          examples:
+          - 25.0421
+        longitude:
+          anyOf:
+          - type: number
+            maximum: 180.0
+            minimum: -180.0
+          - type: 'null'
+          title: Longitude
+          examples:
+          - 121.5253
+        city_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: City Code
+          examples:
+          - '63000'
+        town_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Town Code
+          examples:
+          - '63000050'
+        zip_code:
+          anyOf:
+          - type: string
+            maxLength: 10
+          - type: 'null'
+          title: Zip Code
+          examples:
+          - '100'
+        street_address:
+          anyOf:
+          - type: string
+            maxLength: 300
+          - type: 'null'
+          title: Street Address
+          examples:
+          - 濟南路一段321號
+        telephones:
+          items:
+            type: string
+          type: array
+          title: Telephones
+          examples:
+          - - (02)2322-6050
+        website_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Website Url
+          examples:
+          - https://www.ntub.edu.tw
+        service_time_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Time Info
+          examples:
+          - 週一至週五 08:00-22:00
+        traffic_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Traffic Info
+        parking_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parking Info
+        fee_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fee Info
+        service_status:
+          $ref: '#/components/schemas/ServiceStatus'
+          description: 0 永久停止 / 1 正常營運 / 2 非營運時段 / 3 暫時停止營運 / 9 待確認
+          default: 1
+        is_public_access:
+          type: boolean
+          title: Is Public Access
+          default: true
+        is_free:
+          type: boolean
+          title: Is Free
+          default: false
+          examples:
+          - true
+        visit_duration:
+          anyOf:
+          - type: integer
+            maximum: 100000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Visit Duration
+          description: 建議停留時間（分鐘）
+          examples:
+          - 60
+        assets_class:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assets Class
+          description: 文化資產級別代碼 (0-5, 9)
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          examples:
+          - - 校園
+            - 學習
+        remarks:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remarks
+        category_ids:
+          items:
+            type: integer
+          type: array
+          title: Category Ids
+          description: 景點類型代碼列表
+          examples:
+          - - 1
+            - 12
+      type: object
+      required:
+      - name
+      title: AttractionFields
+      description: 景點共用欄位（PUT 時全部欄位皆會覆寫）。
+    AttractionNearby:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        city:
+          anyOf:
+          - $ref: '#/components/schemas/CityRef'
+          - type: 'null'
+        town:
+          anyOf:
+          - $ref: '#/components/schemas/TownRef'
+          - type: 'null'
+        categories:
+          items:
+            $ref: '#/components/schemas/CategoryRef'
+          type: array
+          title: Categories
+          default: []
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
+        is_free:
+          type: boolean
+          title: Is Free
+        service_status:
+          type: integer
+          title: Service Status
+        cover_image:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cover Image
+        distance_km:
+          type: number
+          title: Distance Km
+      type: object
+      required:
+      - id
+      - name
+      - is_free
+      - service_status
+      - distance_km
+      title: AttractionNearby
+    AttractionSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        city:
+          anyOf:
+          - $ref: '#/components/schemas/CityRef'
+          - type: 'null'
+        town:
+          anyOf:
+          - $ref: '#/components/schemas/TownRef'
+          - type: 'null'
+        categories:
+          items:
+            $ref: '#/components/schemas/CategoryRef'
+          type: array
+          title: Categories
+          default: []
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
+        is_free:
+          type: boolean
+          title: Is Free
+        service_status:
+          type: integer
+          title: Service Status
+        cover_image:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cover Image
+      type: object
+      required:
+      - id
+      - name
+      - is_free
+      - service_status
+      title: AttractionSummary
+    AttractionUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        alternate_names:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Alternate Names
+        latitude:
+          anyOf:
+          - type: number
+            maximum: 90.0
+            minimum: -90.0
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+            maximum: 180.0
+            minimum: -180.0
+          - type: 'null'
+          title: Longitude
+        city_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: City Code
+        town_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Town Code
+        zip_code:
+          anyOf:
+          - type: string
+            maxLength: 10
+          - type: 'null'
+          title: Zip Code
+        street_address:
+          anyOf:
+          - type: string
+            maxLength: 300
+          - type: 'null'
+          title: Street Address
+        telephones:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Telephones
+        website_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Website Url
+        service_time_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Time Info
+        traffic_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Traffic Info
+        parking_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parking Info
+        fee_info:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fee Info
+        service_status:
+          anyOf:
+          - $ref: '#/components/schemas/ServiceStatus'
+          - type: 'null'
+        is_public_access:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Public Access
+        is_free:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Free
+        visit_duration:
+          anyOf:
+          - type: integer
+            maximum: 100000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Visit Duration
+        assets_class:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assets Class
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        remarks:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remarks
+        category_ids:
+          anyOf:
+          - items:
+              type: integer
+            type: array
+          - type: 'null'
+          title: Category Ids
+      type: object
+      title: AttractionUpdate
+      description: PATCH：只更新有傳入的欄位。
+    CategoryBase:
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Name
+          examples:
+          - 夜景類
+        description:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Description
+          examples:
+          - 適合欣賞夜景的地點
+      type: object
+      required:
+      - name
+      title: CategoryBase
+    CategoryCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Name
+          examples:
+          - 夜景類
+        description:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Description
+          examples:
+          - 適合欣賞夜景的地點
+        id:
+          anyOf:
+          - type: integer
+            maximum: 9999.0
+            minimum: 1.0
+          - type: 'null'
+          title: Id
+          description: 類型代碼；省略時自動編號
+          examples:
+          - 100
+      type: object
+      required:
+      - name
+      title: CategoryCreate
+    CategoryOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        attraction_count:
+          type: integer
+          title: Attraction Count
+          default: 0
+      type: object
+      required:
+      - id
+      - name
+      title: CategoryOut
+    CategoryRef:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+      type: object
+      required:
+      - id
+      - name
+      title: CategoryRef
+    CategoryUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 50
+            minLength: 1
+          - type: 'null'
+          title: Name
+        description:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Description
+      type: object
+      title: CategoryUpdate
+    CityCreate:
+      properties:
+        code:
+          type: string
+          maxLength: 10
+          minLength: 1
+          pattern: ^[0-9A-Za-z]+$
+          title: Code
+          examples:
+          - '99001'
+        name:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Name
+          examples:
+          - 測試市
+      type: object
+      required:
+      - code
+      - name
+      title: CityCreate
+    CityOut:
+      properties:
+        code:
+          type: string
+          title: Code
+        name:
+          type: string
+          title: Name
+        town_count:
+          type: integer
+          title: Town Count
+          default: 0
+        attraction_count:
+          type: integer
+          title: Attraction Count
+          default: 0
+      type: object
+      required:
+      - code
+      - name
+      title: CityOut
+    CityRef:
+      properties:
+        code:
+          type: string
+          title: Code
+        name:
+          type: string
+          title: Name
+      type: object
+      required:
+      - code
+      - name
+      title: CityRef
+    CityUpdate:
+      properties:
+        name:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Name
+          examples:
+          - 測試新市
+      type: object
+      required:
+      - name
+      title: CityUpdate
+    CountItem:
+      properties:
+        key:
+          type: string
+          title: Key
+        name:
+          type: string
+          title: Name
+        count:
+          type: integer
+          title: Count
+      type: object
+      required:
+      - key
+      - name
+      - count
+      title: CountItem
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ImageCreate:
+      properties:
+        url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Url
+          examples:
+          - https://example.com/photo.jpg
+        name:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Name
+          examples:
+          - 正門口
+        description:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Description
+          examples:
+          - 照片提供：遊客
+      type: object
+      required:
+      - url
+      title: ImageCreate
+    ImageOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        attraction_id:
+          type: string
+          title: Attraction Id
+        url:
+          type: string
+          title: Url
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+      type: object
+      required:
+      - id
+      - attraction_id
+      - url
+      title: ImageOut
+    ImageUpdate:
+      properties:
+        url:
+          anyOf:
+          - type: string
+            maxLength: 2083
+            minLength: 1
+            format: uri
+          - type: 'null'
+          title: Url
+        name:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Name
+        description:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Description
+      type: object
+      title: ImageUpdate
+    Message:
+      properties:
+        detail:
+          type: string
+          title: Detail
+      type: object
+      required:
+      - detail
+      title: Message
+    Overview:
+      properties:
+        attractions:
+          type: integer
+          title: Attractions
+        free_attractions:
+          type: integer
+          title: Free Attractions
+        attractions_with_images:
+          type: integer
+          title: Attractions With Images
+        cities:
+          type: integer
+          title: Cities
+        towns:
+          type: integer
+          title: Towns
+        categories:
+          type: integer
+          title: Categories
+        images:
+          type: integer
+          title: Images
+        reviews:
+          type: integer
+          title: Reviews
+        trips:
+          type: integer
+          title: Trips
+        by_service_status:
+          items:
+            $ref: '#/components/schemas/CountItem'
+          type: array
+          title: By Service Status
+        data_source:
+          type: string
+          title: Data Source
+        data_update_time:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Data Update Time
+      type: object
+      required:
+      - attractions
+      - free_attractions
+      - attractions_with_images
+      - cities
+      - towns
+      - categories
+      - images
+      - reviews
+      - trips
+      - by_service_status
+      - data_source
+      title: Overview
+    Page_AttractionSummary_:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: 符合條件的總筆數
+        page:
+          type: integer
+          title: Page
+          description: 目前頁碼（從 1 開始）
+        page_size:
+          type: integer
+          title: Page Size
+          description: 每頁筆數
+        pages:
+          type: integer
+          title: Pages
+          description: 總頁數
+        items:
+          items:
+            $ref: '#/components/schemas/AttractionSummary'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - page
+      - page_size
+      - pages
+      - items
+      title: Page[AttractionSummary]
+    Page_CategoryOut_:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: 符合條件的總筆數
+        page:
+          type: integer
+          title: Page
+          description: 目前頁碼（從 1 開始）
+        page_size:
+          type: integer
+          title: Page Size
+          description: 每頁筆數
+        pages:
+          type: integer
+          title: Pages
+          description: 總頁數
+        items:
+          items:
+            $ref: '#/components/schemas/CategoryOut'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - page
+      - page_size
+      - pages
+      - items
+      title: Page[CategoryOut]
+    Page_CityOut_:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: 符合條件的總筆數
+        page:
+          type: integer
+          title: Page
+          description: 目前頁碼（從 1 開始）
+        page_size:
+          type: integer
+          title: Page Size
+          description: 每頁筆數
+        pages:
+          type: integer
+          title: Pages
+          description: 總頁數
+        items:
+          items:
+            $ref: '#/components/schemas/CityOut'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - page
+      - page_size
+      - pages
+      - items
+      title: Page[CityOut]
+    Page_ReviewOut_:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: 符合條件的總筆數
+        page:
+          type: integer
+          title: Page
+          description: 目前頁碼（從 1 開始）
+        page_size:
+          type: integer
+          title: Page Size
+          description: 每頁筆數
+        pages:
+          type: integer
+          title: Pages
+          description: 總頁數
+        items:
+          items:
+            $ref: '#/components/schemas/ReviewOut'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - page
+      - page_size
+      - pages
+      - items
+      title: Page[ReviewOut]
+    Page_TownOut_:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: 符合條件的總筆數
+        page:
+          type: integer
+          title: Page
+          description: 目前頁碼（從 1 開始）
+        page_size:
+          type: integer
+          title: Page Size
+          description: 每頁筆數
+        pages:
+          type: integer
+          title: Pages
+          description: 總頁數
+        items:
+          items:
+            $ref: '#/components/schemas/TownOut'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - page
+      - page_size
+      - pages
+      - items
+      title: Page[TownOut]
+    Page_TripSummary_:
+      properties:
+        total:
+          type: integer
+          title: Total
+          description: 符合條件的總筆數
+        page:
+          type: integer
+          title: Page
+          description: 目前頁碼（從 1 開始）
+        page_size:
+          type: integer
+          title: Page Size
+          description: 每頁筆數
+        pages:
+          type: integer
+          title: Pages
+          description: 總頁數
+        items:
+          items:
+            $ref: '#/components/schemas/TripSummary'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - page
+      - page_size
+      - pages
+      - items
+      title: Page[TripSummary]
+    RatedAttraction:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        review_count:
+          type: integer
+          title: Review Count
+        average_rating:
+          type: number
+          title: Average Rating
+      type: object
+      required:
+      - id
+      - name
+      - review_count
+      - average_rating
+      title: RatedAttraction
+    ReviewCreate:
+      properties:
+        author:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Author
+          examples:
+          - 小明
+        rating:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Rating
+          description: 評分 1~5 顆星
+          examples:
+          - 5
+        title:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Title
+          examples:
+          - 風景超美
+        content:
+          anyOf:
+          - type: string
+            maxLength: 5000
+          - type: 'null'
+          title: Content
+          examples:
+          - 步道規劃良好，很適合全家出遊。
+        visit_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Visit Date
+          examples:
+          - '2026-09-20'
+        attraction_id:
+          type: string
+          title: Attraction Id
+          examples:
+          - Attraction_345040000G_000001
+      type: object
+      required:
+      - author
+      - rating
+      - attraction_id
+      title: ReviewCreate
+    ReviewFields:
+      properties:
+        author:
+          type: string
+          maxLength: 50
+          minLength: 1
+          title: Author
+          examples:
+          - 小明
+        rating:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Rating
+          description: 評分 1~5 顆星
+          examples:
+          - 5
+        title:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Title
+          examples:
+          - 風景超美
+        content:
+          anyOf:
+          - type: string
+            maxLength: 5000
+          - type: 'null'
+          title: Content
+          examples:
+          - 步道規劃良好，很適合全家出遊。
+        visit_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Visit Date
+          examples:
+          - '2026-09-20'
+      type: object
+      required:
+      - author
+      - rating
+      title: ReviewFields
+    ReviewOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        attraction_id:
+          type: string
+          title: Attraction Id
+        attraction_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attraction Name
+        author:
+          type: string
+          title: Author
+        rating:
+          type: integer
+          title: Rating
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        content:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content
+        visit_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Visit Date
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+      type: object
+      required:
+      - id
+      - attraction_id
+      - author
+      - rating
+      title: ReviewOut
+    ReviewSort:
+      type: string
+      enum:
+      - -created_at
+      - created_at
+      - -rating
+      - rating
+      title: ReviewSort
+    ReviewUpdate:
+      properties:
+        author:
+          anyOf:
+          - type: string
+            maxLength: 50
+            minLength: 1
+          - type: 'null'
+          title: Author
+        rating:
+          anyOf:
+          - type: integer
+            maximum: 5.0
+            minimum: 1.0
+          - type: 'null'
+          title: Rating
+        title:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Title
+        content:
+          anyOf:
+          - type: string
+            maxLength: 5000
+          - type: 'null'
+          title: Content
+        visit_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Visit Date
+      type: object
+      title: ReviewUpdate
+    ServiceStatus:
+      type: integer
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 9
+      title: ServiceStatus
+      description: 9. 營運服務狀態代碼 (ServiceStatusEnum)
+    SortField:
+      type: string
+      enum:
+      - id
+      - name
+      - -name
+      - updated_at
+      - -updated_at
+      - source_update_time
+      - -source_update_time
+      title: SortField
+    TownCreate:
+      properties:
+        code:
+          type: string
+          maxLength: 12
+          minLength: 1
+          pattern: ^[0-9A-Za-z]+$
+          title: Code
+          examples:
+          - '99001010'
+        name:
+          type: string
+          maxLength: 20
+          minLength: 1
+          title: Name
+          examples:
+          - 測試區
+        city_code:
+          type: string
+          title: City Code
+          examples:
+          - '99001'
+      type: object
+      required:
+      - code
+      - name
+      - city_code
+      title: TownCreate
+    TownOut:
+      properties:
+        code:
+          type: string
+          title: Code
+        name:
+          type: string
+          title: Name
+        city_code:
+          type: string
+          title: City Code
+        city_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: City Name
+        attraction_count:
+          type: integer
+          title: Attraction Count
+          default: 0
+      type: object
+      required:
+      - code
+      - name
+      - city_code
+      title: TownOut
+    TownRef:
+      properties:
+        code:
+          type: string
+          title: Code
+        name:
+          type: string
+          title: Name
+      type: object
+      required:
+      - code
+      - name
+      title: TownRef
+    TownUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 20
+            minLength: 1
+          - type: 'null'
+          title: Name
+        city_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: City Code
+      type: object
+      title: TownUpdate
+    TripCreate:
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Title
+          examples:
+          - 宜蘭兩天一夜
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          examples:
+          - 太平山賞楓之旅
+        owner:
+          anyOf:
+          - type: string
+            maxLength: 50
+          - type: 'null'
+          title: Owner
+          examples:
+          - 小明
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+          examples:
+          - '2026-10-10'
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+          examples:
+          - '2026-10-11'
+        items:
+          items:
+            $ref: '#/components/schemas/TripItemCreate'
+          type: array
+          title: Items
+          description: 可同時建立行程項目
+      type: object
+      required:
+      - title
+      title: TripCreate
+    TripItemCreate:
+      properties:
+        attraction_id:
+          type: string
+          title: Attraction Id
+          examples:
+          - Attraction_345040000G_000001
+        day:
+          type: integer
+          maximum: 365.0
+          minimum: 1.0
+          title: Day
+          description: 第幾天
+          default: 1
+          examples:
+          - 1
+        sequence:
+          type: integer
+          maximum: 1000.0
+          minimum: 1.0
+          title: Sequence
+          description: 當天順序
+          default: 1
+          examples:
+          - 1
+        note:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Note
+          examples:
+          - 早上出發看日出
+      type: object
+      required:
+      - attraction_id
+      title: TripItemCreate
+    TripItemOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        trip_id:
+          type: integer
+          title: Trip Id
+        day:
+          type: integer
+          title: Day
+        sequence:
+          type: integer
+          title: Sequence
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        attraction:
+          $ref: '#/components/schemas/AttractionSummary'
+      type: object
+      required:
+      - id
+      - trip_id
+      - day
+      - sequence
+      - attraction
+      title: TripItemOut
+    TripItemUpdate:
+      properties:
+        attraction_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attraction Id
+        day:
+          anyOf:
+          - type: integer
+            maximum: 365.0
+            minimum: 1.0
+          - type: 'null'
+          title: Day
+        sequence:
+          anyOf:
+          - type: integer
+            maximum: 1000.0
+            minimum: 1.0
+          - type: 'null'
+          title: Sequence
+        note:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Note
+      type: object
+      title: TripItemUpdate
+    TripOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        title:
+          type: string
+          title: Title
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        item_count:
+          type: integer
+          title: Item Count
+          default: 0
+        items:
+          items:
+            $ref: '#/components/schemas/TripItemOut'
+          type: array
+          title: Items
+          default: []
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+      type: object
+      required:
+      - id
+      - title
+      title: TripOut
+    TripSummary:
+      properties:
+        id:
+          type: integer
+          title: Id
+        title:
+          type: string
+          title: Title
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        item_count:
+          type: integer
+          title: Item Count
+          default: 0
+      type: object
+      required:
+      - id
+      - title
+      title: TripSummary
+    TripUpdate:
+      properties:
+        title:
+          anyOf:
+          - type: string
+            maxLength: 100
+            minLength: 1
+          - type: 'null'
+          title: Title
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        owner:
+          anyOf:
+          - type: string
+            maxLength: 50
+          - type: 'null'
+          title: Owner
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+      type: object
+      title: TripUpdate
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    APIKeyHeader:
+      type: apiKey
+      description: 寫入操作需帶入 API Key（預設為 `ntub-iot-2026`，可用環境變數 `API_KEY` 修改）
+      in: header
+      name: X-API-Key
+tags:
+- name: Attractions 景點
+  description: 全台觀光景點 CRUD、搜尋與附近查詢
+- name: Attraction Images 景點圖片
+  description: 景點的圖片子資源
+- name: Categories 景點類型
+  description: 觀光資料標準的景點類型代碼
+- name: Cities 縣市
+  description: 縣市行政區
+- name: Towns 鄉鎮市區
+  description: 鄉鎮市區行政區
+- name: Reviews 評論
+  description: 遊客對景點的評論與評分
+- name: Trips 旅遊行程
+  description: 使用者規劃的旅遊行程
+- name: Trip Items 行程項目
+  description: 行程中的每一個景點安排
+- name: Stats 統計
+  description: 彙總統計資訊
+- name: System 系統
+  description: 健康檢查
+servers:
+- url: http://127.0.0.1:8000
+  description: 本機開發伺服器
