@@ -51,14 +51,26 @@ command -v "$PYTHON" >/dev/null || die "找不到 $PYTHON，請先安裝 Python 
 
 # ---------- 建立虛擬環境並安裝套件 ----------
 info "專案目錄：$APP_DIR（執行使用者：$SERVICE_USER）"
-if [[ ! -x "$VENV_DIR/bin/python" ]]; then
-    info "建立虛擬環境 $VENV_DIR"
-    sudo -u "$SERVICE_USER" "$PYTHON" -m venv "$VENV_DIR" \
-        || die "建立 venv 失敗；Debian / Ubuntu 請先執行：sudo apt install python3-venv"
+PY_VER="$("$PYTHON" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+VENV_HINT="Debian / Ubuntu 請先執行：sudo apt install python3-venv python${PY_VER}-venv"
+
+# 既有 venv 若缺少 pip（例如先前因未安裝 python3-venv 而建立失敗），刪除後重建
+if [[ -d "$VENV_DIR" ]] && ! "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
+    info "既有的 $VENV_DIR 不完整（缺少 pip），刪除後重建"
+    rm -rf "$VENV_DIR"
 fi
+if [[ ! -d "$VENV_DIR" ]]; then
+    info "建立虛擬環境 $VENV_DIR"
+    if ! sudo -u "$SERVICE_USER" "$PYTHON" -m venv "$VENV_DIR"; then
+        rm -rf "$VENV_DIR"
+        die "建立 venv 失敗；$VENV_HINT"
+    fi
+fi
+"$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1 || { rm -rf "$VENV_DIR"; die "venv 中沒有 pip；$VENV_HINT"; }
+
 info "安裝相依套件"
-sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --quiet --upgrade pip
-sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --quiet -r "$APP_DIR/requirements.txt"
+sudo -u "$SERVICE_USER" "$VENV_DIR/bin/python" -m pip install --quiet --upgrade pip
+sudo -u "$SERVICE_USER" "$VENV_DIR/bin/python" -m pip install --quiet -r "$APP_DIR/requirements.txt"
 
 # 服務使用者需能寫入 data/（SQLite 資料庫）
 chown -R "$SERVICE_USER": "$APP_DIR/data"
