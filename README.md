@@ -273,8 +273,8 @@ erDiagram
 
 ### 2. 安裝
 ```bash
-git clone <本專案 GitHub URL>
-cd opendata
+git clone https://github.com/jerry102039/taiwan-tourism-api.git
+cd taiwan-tourism-api
 
 python -m venv .venv
 # Windows
@@ -354,6 +354,23 @@ docker build -t tourism-api .
 docker run -p 8000:8000 tourism-api
 ```
 
+**Linux systemd 服務**（Ubuntu / Debian / RHEL 等）
+```bash
+git clone https://github.com/jerry102039/taiwan-tourism-api.git
+cd taiwan-tourism-api
+sudo bash scripts/install_service.sh
+```
+腳本會自動建立 `.venv`、安裝套件、產生 `/etc/systemd/system/taiwan-tourism-api.service` 並設為開機自動啟動。
+可用環境變數調整：`sudo PORT=9000 API_KEY=my-secret bash scripts/install_service.sh`
+（另可用 `SERVICE_USER`、`HOST`、`SERVICE_NAME`、`PYTHON`），安裝後設定存於 `/etc/default/taiwan-tourism-api`。
+
+```bash
+sudo systemctl status taiwan-tourism-api     # 查看狀態
+sudo systemctl restart taiwan-tourism-api    # 重新啟動（修改設定後）
+journalctl -u taiwan-tourism-api -f          # 即時日誌
+sudo bash scripts/install_service.sh --uninstall   # 移除服務
+```
+
 **Render.com（免費）**：將專案推上 GitHub → Render 選 **New → Blueprint** → 選此 repo，會依 [`render.yaml`](render.yaml) 自動部署。
 
 ---
@@ -361,7 +378,7 @@ docker run -p 8000:8000 tourism-api
 ## 📁 專案結構
 
 ```
-opendata/
+taiwan-tourism-api/
 ├── data/
 │   └── AttractionList.json      # Open Data 原始資料檔（交通部觀光署）
 ├── app/                         # FastAPI 伺服器
@@ -388,7 +405,8 @@ opendata/
 │   ├── import_data.py           # 匯入 / 重建資料庫
 │   ├── export_openapi.py        # 匯出 openapi.json / yaml / 靜態 Swagger UI
 │   ├── generate_postman.py      # 產生 Postman Collection
-│   └── record_demo.py           # 錄製示範影片（Playwright + edge-tts + ffmpeg）
+│   ├── record_demo.py           # 錄製示範影片（Playwright + edge-tts + ffmpeg）
+│   └── install_service.sh       # 安裝為 Linux systemd 服務
 ├── docs/
 │   ├── openapi.json / .yaml     # API 規格
 │   ├── index.html               # 靜態 Swagger UI（免啟動伺服器）
